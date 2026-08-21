@@ -5,9 +5,21 @@
 agp = "9.2.1"
 
 kotlin = "2.3.21"
+kotlin-coroutines = "1.11.0"
+
+androidx-core = "1.18.0"
+androidx-activity = "1.13.0"
+
 
 [libraries]
 android-gradle-plugin-api = { group = "com.android.tools.build", name = "gradle-api", version.ref = "agp" }
+
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlin-coroutines" }
+
+androidx-core = { group = "androidx.core", name = "core", version.ref = "androidx-core" }
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidx-core" }
+androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "androidx-activity" }
+androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", version.ref = "androidx-activity" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

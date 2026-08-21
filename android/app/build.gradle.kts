@@ -8,6 +8,15 @@ plugins {
     alias(libs.plugins.zig.android)
 }
 
+dependencies {
+    implementation(libs.kotlinx.coroutines.android)
+
+    implementation(libs.androidx.core)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.activity.ktx)
+}
+
 val appNamespace = "com.raydrivers.starguide"
 
 val generatedLicenseAssetsDir = layout.buildDirectory.dir("generated/licenseAssets/main")

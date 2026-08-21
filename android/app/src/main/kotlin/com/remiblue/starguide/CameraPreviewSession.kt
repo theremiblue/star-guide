@@ -50,15 +50,11 @@ sealed interface CameraPreviewSession {
             val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val dispatch = CameraDispatch()
 
-            fun fail(error: Throwable): Nothing {
-                dispatch.shutdown()
-                throw error
-            }
-
             val cameraId = try {
                 CameraId.backFacing(cameraManager)
             } catch (error: BackFacingCameraException) {
-                fail(error)
+                dispatch.quit()
+                throw error
             }
 
             Logger.d(LOG_TAG, "Opening camera device: cameraId=${cameraId.value}")
@@ -66,7 +62,7 @@ sealed interface CameraPreviewSession {
             val camera = try {
                 cameraManager.awaitOpenCamera(cameraId, dispatch)
             } catch (error: CameraOpenException) {
-                fail(error)
+                throw error
             }
 
             val session = DeviceOpened(
@@ -91,7 +87,6 @@ sealed interface CameraPreviewSession {
             Logger.d(LOG_TAG, "Closing opened camera device: cameraId=${cameraId.value}")
 
             camera.close()
-            dispatch.shutdown()
 
             return Closed
         }
@@ -136,7 +131,6 @@ sealed interface CameraPreviewSession {
 
             captureSession.close()
             camera.close()
-            dispatch.shutdown()
 
             return Closed
         }
@@ -188,7 +182,6 @@ sealed interface CameraPreviewSession {
 
             captureSession.close()
             camera.close()
-            dispatch.shutdown()
 
             return Closed
         }

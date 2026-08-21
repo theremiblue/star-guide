@@ -23,6 +23,7 @@ import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.Executor
+import java.util.concurrent.RejectedExecutionException
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -72,21 +73,20 @@ class CameraDispatch {
     val handler: Handler = Handler(thread.looper)
 
     val executor: Executor = Executor { command ->
-        handler.post(command)
+        if (!handler.post(command)) {
+            throw RejectedExecutionException("Camera dispatch has been shut down")
+        }
     }
 
     fun quit() {
         thread.quitSafely()
     }
 
-    fun shutdown() {
-        thread.quitSafely()
-
-        try {
-            thread.join()
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
-        }
+    fun finish() {
+        Logger.v(LOG_TAG, "Posting the dispatch close")
+        check(handler.post {
+            thread.quitSafely()
+        })
     }
 }
 
@@ -101,6 +101,7 @@ private enum class CameraDeviceState {
 /// This callback cares only about the camera state while opening
 private class AwaitCameraDeviceStateCallback(
     private val continuation: CancellableContinuation<CameraDevice>,
+    private val dispatch: CameraDispatch,
 ) : CameraDevice.StateCallback() {
     companion object {
         private const val LOG_TAG = "Camera2Extensions.AwaitCameraDeviceStateCallback"
@@ -200,6 +201,14 @@ private class AwaitCameraDeviceStateCallback(
             }
         }
     }
+
+    override fun onClosed(camera: CameraDevice) {
+        Logger.v(LOG_TAG, "Camera device closed for cameraId=${camera.id}")
+
+        state.store(CameraDeviceState.TERMINATED)
+
+        dispatch.finish()
+    }
 }
 
 @Throws(CameraOpenException::class)
@@ -208,7 +217,7 @@ internal suspend fun CameraManager.awaitOpenCamera(
     cameraId: CameraId,
     dispatch: CameraDispatch,
 ): CameraDevice = suspendCancellableCoroutine { continuation ->
-    val stateCallback = AwaitCameraDeviceStateCallback(continuation)
+    val stateCallback = AwaitCameraDeviceStateCallback(continuation, dispatch)
 
     continuation.invokeOnCancellation {
         stateCallback.cancelOpening()

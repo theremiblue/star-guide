@@ -60,6 +60,12 @@ abstract class ZigCoreBuildAndroidTask @Inject constructor(
         androidConfig: AndroidConfig,
         variantConfig: AndroidVariantConfig,
     ) {
+        logger.lifecycle(
+            "Configured Zig for {}: executable={}",
+            variantConfig.name,
+            zigConfig.executable,
+        )
+
         zigProjectDirectory = zigConfig.projectDirectory
         zigExecutable = zigConfig.executable
         extraArgs = zigConfig.extraArgs

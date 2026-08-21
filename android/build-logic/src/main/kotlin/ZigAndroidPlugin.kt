@@ -140,6 +140,12 @@ class ZigAndroidPlugin : Plugin<Project> {
     ): TaskProvider<ZigCoreBuildAndroidTask> {
         val taskName = "zigBuild${variantConfig.name.replaceFirstChar(Char::titlecase)}"
 
+        target.logger.lifecycle(
+            "Registered Zig build task {} with output {}",
+            taskName,
+            variantConfig.jniLibsDirectory,
+        )
+
         return target.tasks.register<ZigCoreBuildAndroidTask>(taskName) {
             group = "zig"
             description = "Build Zig native library for ${variantConfig.name}"

@@ -13,6 +13,7 @@ import android.view.TextureView
 import androidx.annotation.CheckResult
 
 
+/// Owns Surface instance attached to SurfaceTexture.
 sealed interface PreviewSurface {
     companion object {
         fun create(surfaceTexture: SurfaceTexture): Active {
@@ -28,8 +29,6 @@ sealed interface PreviewSurface {
         val surface: Surface
             get() = rawSurface
 
-        // TODO: am I correct that only PreviewView can release the surface?
-        //       as I understand - this is perfect, because it's tied to Texture lifetime
         @CheckResult
         internal fun release() : Unavailable {
             rawSurface.release()
@@ -46,10 +45,16 @@ class PreviewView(
     private val listener: Listener,
 ) : TextureView(context) {
     interface Listener {
+        /// [surface] is borrowed by listener
         fun onPreviewSurfaceAvailable(surface: PreviewSurface.Active)
+
+        /// All of the users of surface should stop using it before this function returns
         fun onPreviewSurfaceDestroyed()
     }
 
+    // TODO: is the synchronization needed for access to this variable?
+    //       we have no guarantees on callback execution, theoretically
+    //       invalid surface can be passed to listener
     private var surface: PreviewSurface = PreviewSurface.Unavailable
 
     init {
@@ -67,18 +72,15 @@ class PreviewView(
                     "SurfaceTexture became available while preview surface already exists"
                 }
 
-                // TODO: not 100% sure about this too, also (like below) workaround for types
-                val newSurface = PreviewSurface.create(surfaceTexture)
-                surface = newSurface
+                val active = PreviewSurface.create(surfaceTexture)
+                surface = active
 
-                listener.onPreviewSurfaceAvailable(newSurface)
+                listener.onPreviewSurfaceAvailable(active)
             }
 
             override fun onSurfaceTextureDestroyed(
                 surfaceTexture: SurfaceTexture,
             ): Boolean {
-                // TODO: I'm not 100% sure that this is safe
-                //       This is a workaround to allow smartcast in Active branch
                 when (val state = surface) {
                     PreviewSurface.Unavailable -> {
                         // Defensive. Destruction without availability is odd,
@@ -86,7 +88,7 @@ class PreviewView(
                     }
 
                     is PreviewSurface.Active -> {
-                        // TODO: document the order of operations and intended use
+                        // Let users act on it, then release the resources
                         listener.onPreviewSurfaceDestroyed()
                         surface = state.release()
                     }

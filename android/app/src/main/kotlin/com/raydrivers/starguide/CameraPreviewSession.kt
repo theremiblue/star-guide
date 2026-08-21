@@ -14,7 +14,12 @@ import androidx.annotation.CheckResult
 import androidx.annotation.RequiresPermission
 
 
-// TODO: any async/concurrency problems?
+/**
+ * Typestate interface representing valid camera Preview state transitions.
+ *
+ * Any state's transition function throws exception on error that is defined in Camera2Exceptions.
+ * Reason for this design - we don't have any context here to handle failure depending on the problem.
+ */
 sealed interface CameraPreviewSession {
     companion object {
         private const val LOG_TAG = "CameraPreviewSession"
@@ -23,44 +28,29 @@ sealed interface CameraPreviewSession {
     @CheckResult
     fun close() : Closed
 
-    sealed interface Transition<out State : CameraPreviewSession> {
-        val session: CameraPreviewSession
-
-        data class Next<out State : CameraPreviewSession>(
-            override val session: State,
-        ) : Transition<State>
-
-        data class Failure(
-            override val session: Closed,
-            val error: Throwable,
-        ) : Transition<Nothing>
-    }
-
-    suspend fun <State : CameraPreviewSession> stateTransition(
-        transition: suspend () -> Transition<State>,
-    ): Transition<State> = transition()
-
     /// Initial state, no resources are used
     data object Closed : CameraPreviewSession {
         override fun close(): Closed = this
 
         @RequiresPermission(Manifest.permission.CAMERA)
+        @Throws(BackFacingCameraException::class,
+                CameraOpenException::class)
         suspend fun open(
             context: Context,
             previewSurface: PreviewSurface.Active,
-        ): Transition<DeviceOpened> = stateTransition {
+        ): DeviceOpened {
             val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
             val dispatch = CameraDispatch()
 
-            fun failure(error: Throwable): Transition.Failure {
+            fun fail(error: Throwable): Nothing {
                 dispatch.shutdown()
-                return Transition.Failure(close(), error)
+                throw error
             }
 
             val cameraId = try {
                 CameraId.backFacing(cameraManager)
             } catch (error: BackFacingCameraException) {
-                return@stateTransition failure(error)
+                fail(error)
             }
 
             Logger.d(LOG_TAG, "Opening camera preview: cameraId=${cameraId.value}")
@@ -68,7 +58,7 @@ sealed interface CameraPreviewSession {
             val camera = try {
                 cameraManager.awaitOpenCamera(cameraId, dispatch)
             } catch (error: CameraOpenException) {
-                return@stateTransition failure(error)
+                fail(error)
             }
 
             val session = DeviceOpened(
@@ -78,7 +68,7 @@ sealed interface CameraPreviewSession {
                 previewSurface = previewSurface,
             )
 
-            Transition.Next(session)
+            return session
         }
     }
 
@@ -98,13 +88,19 @@ sealed interface CameraPreviewSession {
             return Closed
         }
 
-        suspend fun configureSession(): Transition<SessionConfigured> = stateTransition {
+        @Throws(CameraSessionConfigureException::class)
+        suspend fun configureSession(): SessionConfigured {
             Logger.d(LOG_TAG, "Configuring camera capture session: cameraId=${cameraId.value}")
+
+            fun fail(error: Throwable): Nothing {
+                close()
+                throw error
+            }
 
             val captureSession = try {
                 camera.awaitCreateCaptureSession(previewSurface, dispatch)
             } catch (error: CameraSessionConfigureException) {
-                return@stateTransition Transition.Failure(close(), error)
+                fail(error)
             }
 
             val session = SessionConfigured(
@@ -115,7 +111,7 @@ sealed interface CameraPreviewSession {
                 previewSurface = previewSurface,
             )
 
-            Transition.Next(session)
+            return session
         }
     }
 
@@ -137,11 +133,17 @@ sealed interface CameraPreviewSession {
             return Closed
         }
 
-        suspend fun startPreview(): Transition<PreviewRunning> = stateTransition {
+        @Throws(CameraPreviewStartException::class)
+        fun startPreview(): PreviewRunning {
+            fun fail(error: Throwable): Nothing {
+                close()
+                throw error
+            }
+
             val requestSequenceId = try {
                 captureSession.startRepeatingPreview(camera, previewSurface, dispatch)
             } catch (error: CameraPreviewStartException) {
-                return@stateTransition Transition.Failure(close(), error)
+                fail(error)
             }
 
             check(requestSequenceId >= 0) {
@@ -157,7 +159,7 @@ sealed interface CameraPreviewSession {
                 requestSequenceId = requestSequenceId,
             )
 
-            Transition.Next(session)
+            return session
         }
     }
 

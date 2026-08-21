@@ -34,8 +34,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private var cameraPreviewSession: CameraPreviewSession = CameraPreviewSession.Closed
-
     private val previewListener = object : PreviewView.Listener {
         override fun onPreviewSurfaceAvailable(surface: PreviewSurface.Active) {
             if (!hasCameraPermission()) return
@@ -107,54 +105,26 @@ class MainActivity : ComponentActivity() {
         }
 
         Logger.d(LOG_TAG, "Camera permission granted")
-    }
-
-    private fun <State : CameraPreviewSession> applyCameraPreviewTransition(
-        transition: CameraPreviewSession.Transition<State>,
-        failure: String,
-    ): State {
-        cameraPreviewSession = transition.session
-
-        // TODO: how do we handle errors in activity?
-        val error = (transition as? CameraPreviewSession.Transition.Failure)?.error
-        check(transition is CameraPreviewSession.Transition.Next) {
-            "$failure: error=${error?.message}"
-        }
-
-        return transition.session
+        // TODO: if permission was granted after the surface was initialized we should still start previewcontroller
     }
 
     internal fun startCameraPreview(surface: PreviewSurface.Active) {
         check(hasCameraPermission()) {
             "startCameraPreview called without camera permission"
         }
-        Logger.d(LOG_TAG, "Starting camera preview")
 
-        check(cameraPreviewSession == CameraPreviewSession.Closed) {
-            "startCameraPreview called with active camera preview session"
-        }
+        // TODO: if we try to stop the session, this coroutine should be stopped before
+        lifecycleScope.launch { // TODO: maybe launchWhen...*?
+            val previewStarted = cameraPreviewController.start(this@MainActivity, surface)
 
-        Logger.d(LOG_TAG, "Starting camera preview")
-
-        lifecycleScope.launch {
-            @SuppressLint("MissingPermission")
-            val opened = CameraPreviewSession.Closed.open(
-                context = this@MainActivity,
-                previewSurface = surface,
-            )
-            val openedSession = applyCameraPreviewTransition(opened, "Camera preview open failed")
-
-            val configured = openedSession.configureSession()
-            val configuredSession = applyCameraPreviewTransition(configured, "Camera preview configure failed")
-
-            val running = configuredSession.startPreview()
-            applyCameraPreviewTransition(running, "Camera preview start failed")
+            if (!previewStarted) {
+                // TODO: handle the error!
+            }
         }
     }
 
     internal fun stopCameraPreview() {
-        Logger.d(LOG_TAG, "Stop camera preview")
-        cameraPreviewSession = cameraPreviewSession.close()
+        cameraPreviewController.stop()
     }
 
     private fun getContentView(): View {

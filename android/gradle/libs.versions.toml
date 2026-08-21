@@ -24,4 +24,4 @@ androidx-activity-ktx = { group = "androidx.activity", name = "activity-ktx", ve
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 
-zig-android = { id = "com.raydrivers.zig-android" }
+zig-android = { id = "com.remiblue.zig-android" }

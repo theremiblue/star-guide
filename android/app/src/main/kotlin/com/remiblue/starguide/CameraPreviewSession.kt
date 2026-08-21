@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-package com.raydrivers.starguide
+package com.remiblue.starguide
 
 import android.Manifest
 import android.content.Context

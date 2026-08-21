@@ -17,7 +17,7 @@ dependencies {
     implementation(libs.androidx.activity.ktx)
 }
 
-val appNamespace = "com.raydrivers.starguide"
+val appNamespace = "com.remiblue.starguide"
 
 val generatedLicenseAssetsDir = layout.buildDirectory.dir("generated/licenseAssets/main")
 val syncLicenseAssets = tasks.register<AppLicenseAssetsTask>("syncLicenseAssets") {

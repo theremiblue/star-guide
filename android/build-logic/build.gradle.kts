@@ -29,7 +29,7 @@ dependencies {
 gradlePlugin {
     plugins {
         register("zigAndroid") {
-            id = "com.raydrivers.zig-android"
+            id = "com.remiblue.zig-android"
             implementationClass = "ZigAndroidPlugin"
         }
     }

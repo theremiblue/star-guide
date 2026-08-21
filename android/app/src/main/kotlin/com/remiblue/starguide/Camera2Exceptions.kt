@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-package com.raydrivers.starguide
+package com.remiblue.starguide
 
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraDevice

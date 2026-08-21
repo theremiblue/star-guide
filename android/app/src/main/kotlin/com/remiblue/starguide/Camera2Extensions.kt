@@ -5,7 +5,7 @@
 
 @file:OptIn(ExperimentalAtomicApi::class)
 
-package com.raydrivers.starguide
+package com.remiblue.starguide
 
 import android.Manifest
 import android.hardware.camera2.CameraAccessException

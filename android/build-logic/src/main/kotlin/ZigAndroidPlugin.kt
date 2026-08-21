@@ -13,6 +13,8 @@ import org.gradle.api.tasks.TaskProvider
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.register
 
+import java.io.File
+
 class ZigAndroidPlugin : Plugin<Project> {
     private fun validateExtension(
         target: Project,
@@ -92,14 +94,38 @@ class ZigAndroidPlugin : Plugin<Project> {
         extension: ZigExtension,
     ): ZigConfig {
         val projectDir = extension.projectDir!!
+        val executable = resolveZigExecutable(extension.executable)
 
         return ZigConfig(
             projectDirectory = target.rootProject.layout.projectDirectory
                 .dir(projectDir)
                 .asFile,
-            executable = extension.executable,
+            executable = executable.absolutePath,
             extraArgs = extension.extraArgs,
         )
+    }
+
+    private fun resolveZigExecutable(executable: String): File {
+        check(executable.isNotBlank()) {
+            "zig.executable must not be blank"
+        }
+
+        val executableFile = File(executable)
+        if (executableFile.isAbsolute || executable.contains(File.separator)) {
+            return executableFile.absoluteFile
+        }
+
+        val path = System.getenv("PATH").orEmpty()
+        val pathDirectories = path.split(File.pathSeparator)
+        val pathFile = pathDirectories
+            .map { File(it, executable) }
+            .firstOrNull { it.isFile && it.canExecute() }
+
+        check(pathFile != null) {
+            "zig.executable was not found on PATH: $executable"
+        }
+
+        return pathFile.absoluteFile
     }
 
     private fun createVariantConfig(

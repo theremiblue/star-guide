@@ -18,18 +18,53 @@ data class ZigConfig(
     val projectDirectory: File,
     val executable: String,
     val extraArgs: List<String>,
-)
+) {
+    fun assertValid() {
+        val executableFile = File(executable)
+
+        check(projectDirectory.isDirectory) {
+            "zig.projectDir(...) must point to an existing directory: $projectDirectory"
+        }
+        check(executableFile.isFile) {
+            "zig.executable must point to an existing file: $executable"
+        }
+        check(executableFile.canExecute()) {
+            "zig.executable must point to an executable file: $executable"
+        }
+        check(extraArgs.none(String::isBlank)) {
+            "zig.extraArgs must not contain blank values"
+        }
+    }
+}
 
 data class AndroidConfig(
     val androidNdkDirectory: File,
     val androidSdkDirectory: File,
-)
+) {
+    fun assertValid() {
+        check(androidNdkDirectory.isDirectory) {
+            "androidNdkDirectory must point to an existing directory: $androidNdkDirectory"
+        }
+        check(androidSdkDirectory.isDirectory) {
+            "androidSdkDirectory must point to an existing directory: $androidSdkDirectory"
+        }
+    }
+}
 
 data class AndroidVariantConfig(
     val name: String,
     val jniLibsDirectory: File,
     val androidApiLevel: Int,
-)
+) {
+    fun assertValid() {
+        check(name.isNotBlank()) {
+            "variant name must not be blank"
+        }
+        check(androidApiLevel > 0) {
+            "androidApiLevel must be greater than 0: $androidApiLevel"
+        }
+    }
+}
 
 abstract class ZigCoreBuildAndroidTask @Inject constructor(
     private val execOperations: ExecOperations,
@@ -60,6 +95,10 @@ abstract class ZigCoreBuildAndroidTask @Inject constructor(
         androidConfig: AndroidConfig,
         variantConfig: AndroidVariantConfig,
     ) {
+        zigConfig.assertValid()
+        androidConfig.assertValid()
+        variantConfig.assertValid()
+
         logger.lifecycle(
             "Configured Zig for {}: executable={}",
             variantConfig.name,

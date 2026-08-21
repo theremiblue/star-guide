@@ -9,15 +9,15 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
@@ -109,33 +109,46 @@ class MainActivity : ComponentActivity() {
         Logger.d(LOG_TAG, "Camera permission granted")
     }
 
+    private fun <State : CameraPreviewSession> applyCameraPreviewTransition(
+        transition: CameraPreviewSession.Transition<State>,
+        failure: String,
+    ): State {
+        cameraPreviewSession = transition.session
+
+        // TODO: how do we handle errors in activity?
+        val error = (transition as? CameraPreviewSession.Transition.Failure)?.error
+        check(transition is CameraPreviewSession.Transition.Next) {
+            "$failure: error=${error?.message}"
+        }
+
+        return transition.session
+    }
+
     internal fun startCameraPreview(surface: PreviewSurface.Active) {
         check(hasCameraPermission()) {
             "startCameraPreview called without camera permission"
         }
         Logger.d(LOG_TAG, "Starting camera preview")
 
-        cameraPreviewSession = when (val session = cameraPreviewSession) {
-            CameraPreviewSession.Closed -> {
-                Logger.d(LOG_TAG, "Starting camera preview")
+        check(cameraPreviewSession == CameraPreviewSession.Closed) {
+            "startCameraPreview called with active camera preview session"
+        }
 
-                @SuppressLint("MissingPermission", "Already checked above, linter doesn't recognize")
-                CameraPreviewSession.open(
-                    context = this,
-                    previewSurface = surface,
-                    transition = { next ->
-                        cameraPreviewSession = next
-                    },
-                )
-            }
+        Logger.d(LOG_TAG, "Starting camera preview")
 
-            is CameraPreviewSession.Opening -> {
-                session
-            }
+        lifecycleScope.launch {
+            @SuppressLint("MissingPermission")
+            val opened = CameraPreviewSession.Closed.open(
+                context = this@MainActivity,
+                previewSurface = surface,
+            )
+            val openedSession = applyCameraPreviewTransition(opened, "Camera preview open failed")
 
-            is CameraPreviewSession.Running -> {
-                session
-            }
+            val configured = openedSession.configureSession()
+            val configuredSession = applyCameraPreviewTransition(configured, "Camera preview configure failed")
+
+            val running = configuredSession.startPreview()
+            applyCameraPreviewTransition(running, "Camera preview start failed")
         }
     }
 

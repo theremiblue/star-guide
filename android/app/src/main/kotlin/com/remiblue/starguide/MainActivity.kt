@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity() {
 
     private val permissionDeniedView: View by lazy {
         TextView(this).apply {
+            @SuppressLint("SetTextI18N")
             text = "Camera permission is not granted"
             gravity = Gravity.CENTER
 

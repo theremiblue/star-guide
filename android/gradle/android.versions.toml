@@ -1,0 +1,10 @@
+[versions]
+compileSdk = "37"
+minSdk = "26"
+targetSdk = "37"
+ndk = "30.0.14904198"
+
+java = "21"
+
+appVersionCode = "1"
+appVersionName = "0.1.0"

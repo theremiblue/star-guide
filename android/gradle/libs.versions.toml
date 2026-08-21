@@ -1,0 +1,9 @@
+[versions]
+agp = "9.2.0"
+kotlin = "2.3.21"
+
+[libraries]
+android-gradle-plugin-api = { group = "com.android.tools.build", name = "gradle-api", version.ref = "agp" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }

@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright 2026 Dmitry Vasyliev
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 
 PACKAGES=(
     "platform-tools"

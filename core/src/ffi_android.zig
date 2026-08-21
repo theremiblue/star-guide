@@ -1,3 +1,6 @@
+// Copyright 2026 Dmitry Vasyliev
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const core = @import("core.zig");
 
 // Will write the comptime function name generator for JNI later

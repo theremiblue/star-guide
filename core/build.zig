@@ -1,3 +1,6 @@
+// Copyright 2026 Dmitry Vasyliev
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 const std = @import("std");
 
 const AndroidNdk = @import("build/AndroidNdk.zig");

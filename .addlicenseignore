@@ -1,0 +1,7 @@
+COPYING
+android/app/resources/**
+android/app/src/main/assets/**
+android/app/src/main/res/**
+android/gradle/wrapper/**
+android/gradlew
+android/gradlew.bat

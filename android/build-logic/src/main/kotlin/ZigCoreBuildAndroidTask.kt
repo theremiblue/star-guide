@@ -1,3 +1,8 @@
+/*
+ * Copyright 2026 Dmitry Vasyliev
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.Input

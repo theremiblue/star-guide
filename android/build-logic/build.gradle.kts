@@ -1,3 +1,8 @@
+/*
+ * Copyright 2026 Dmitry Vasyliev
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.kotlin.dsl.getByType
 

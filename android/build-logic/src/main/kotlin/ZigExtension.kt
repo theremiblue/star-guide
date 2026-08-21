@@ -1,3 +1,8 @@
+/*
+ * Copyright 2026 Dmitry Vasyliev
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 // TODO: note that ABI selection is handled by zig
 //       for now it generates all supported ones.
 // TODO: too verbose with properties, investigate how to make more readable

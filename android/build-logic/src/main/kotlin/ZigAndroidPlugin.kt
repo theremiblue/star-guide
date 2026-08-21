@@ -1,3 +1,8 @@
+/*
+ * Copyright 2026 Dmitry Vasyliev
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import com.android.build.api.variant.AndroidComponentsExtension
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.api.variant.LibraryAndroidComponentsExtension

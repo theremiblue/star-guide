@@ -19,6 +19,14 @@ import androidx.annotation.RequiresPermission
  *
  * Any state's transition function throws exception on error that is defined in Camera2Exceptions.
  * Reason for this design - we don't have any context here to handle failure depending on the problem.
+ *
+ * @todo I've just realized that I did all of this abstraction only for preview,
+ *       but with camera you can (and will) do other things, so probably this will need
+ *       a refactoring later on.
+ *
+ *       Probably startup flow extensions should be decoupled.
+ *       Something like:
+ *       Camera -> RunningCamera -> <different operations on top of camera object, inc. preview>
  */
 sealed interface CameraPreviewSession {
     companion object {

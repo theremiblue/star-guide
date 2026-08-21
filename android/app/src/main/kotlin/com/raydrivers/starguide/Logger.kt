@@ -8,6 +8,12 @@ package com.raydrivers.starguide
 import android.util.Log
 
 internal object Logger {
+    fun v(tag: String, message: String) {
+        if (Log.isLoggable(tag, Log.VERBOSE)) {
+            Log.v(tag, message)
+        }
+    }
+
     fun d(tag: String, message: String) {
         if (Log.isLoggable(tag, Log.DEBUG)) {
             Log.d(tag, message)

@@ -75,18 +75,18 @@ internal class BackFacingCameraException : Camera2ExtensionException {
 
 internal class CameraOpenException : Camera2ExtensionException {
     constructor(
-        cameraId: String,
+        cameraId: CameraId,
     ) : super(
         "Camera disconnected before CameraManager.openCamera completed: cameraId=$cameraId",
-        CameraDisconnectedCause(cameraId),
+        CameraDisconnectedCause(cameraId.toString()),
     )
 
     constructor(
-        cameraId: String,
+        cameraId: CameraId,
         errorCode: Int,
     ) : super(
         "CameraManager.openCamera callback failed: cameraId=$cameraId error=${cameraErrorName(errorCode)}",
-        CameraOpenErrorCause(cameraId, errorCode),
+        CameraOpenErrorCause(cameraId.toString(), errorCode),
     )
 
     constructor(

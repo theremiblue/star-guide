@@ -5,10 +5,9 @@
 
 package com.raydrivers.starguide
 
+import android.Manifest
 import android.content.Context
-
-import com.raydrivers.starguide.CameraPreviewSession
-import com.raydrivers.starguide.PreviewSurface
+import androidx.annotation.RequiresPermission
 
 /**
  * This class acts as an owner and orchestrator for camera preview flow.
@@ -34,7 +33,7 @@ class CameraPreviewController {
         return next
     }
 
-    // TODO: should check permissions also
+    @RequiresPermission(Manifest.permission.CAMERA)
     suspend fun start(
         context: Context,
         surface: PreviewSurface.Active
@@ -50,6 +49,7 @@ class CameraPreviewController {
                 .transition { configureSession() }
                 .transition { startPreview() }
         } catch (error: Throwable) {
+            Logger.e(LOG_TAG, "Failed to start camera preview: ${error.toString()}")
             session = session.close()
         }
 
@@ -57,6 +57,7 @@ class CameraPreviewController {
     }
 
     fun stop() {
+        Logger.d(LOG_TAG, "Stopping camera preview")
         session = session.close()
     }
 }

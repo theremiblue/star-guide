@@ -20,15 +20,18 @@ import android.os.Handler
 import android.os.HandlerThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.Executor
 import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.resumeWithException
 
+private const val LOG_TAG = "Camera2Extensions"
 
 @JvmInline
-value class CameraId private constructor(
+value class CameraId(
     val value: String,
 ) {
     companion object {
@@ -60,6 +63,7 @@ value class CameraId private constructor(
     }
 }
 
+/// Tied to CameraDevice lifetime
 class CameraDispatch {
     private val thread = HandlerThread("StarGuideCamera").apply {
         start()
@@ -69,6 +73,10 @@ class CameraDispatch {
 
     val executor: Executor = Executor { command ->
         handler.post(command)
+    }
+
+    fun quit() {
+        thread.quitSafely()
     }
 
     fun shutdown() {
@@ -82,63 +90,146 @@ class CameraDispatch {
     }
 }
 
-// TODO: I don't like the naming, proof that we await?
+/// We need to track state to close camera properly
+/// inside the AwaitCameraDeviceStateCallback
+private enum class CameraDeviceState {
+    OPENING,
+    OPENED,
+    TERMINATED,
+}
+
+/// This callback cares only about the camera state while opening
+private class AwaitCameraDeviceStateCallback(
+    private val continuation: CancellableContinuation<CameraDevice>,
+) : CameraDevice.StateCallback() {
+    companion object {
+        private const val LOG_TAG = "Camera2Extensions.AwaitCameraDeviceStateCallback"
+    }
+
+    private val state = AtomicReference(CameraDeviceState.OPENING)
+
+    fun cancelOpening() {
+        Logger.v(LOG_TAG, "Opening cancelled")
+        state.compareAndSet(
+            expectedValue = CameraDeviceState.OPENING,
+            newValue = CameraDeviceState.TERMINATED,
+        )
+    }
+
+    fun failOpening(e: CameraOpenException) {
+        if (
+            state.compareAndSet(
+                expectedValue = CameraDeviceState.OPENING,
+                newValue = CameraDeviceState.TERMINATED
+            )
+        ) {
+            continuation.resumeWithException(e)
+        }
+    }
+
+    override fun onOpened(camera: CameraDevice) {
+        if (state.compareAndSet(
+            expectedValue = CameraDeviceState.OPENING,
+            newValue = CameraDeviceState.OPENED
+        )) {
+            Logger.v(LOG_TAG, "Camera device opened for cameraId=${camera.id}")
+
+            continuation.resume(camera) { _, rejectedCamera, _ ->
+                Logger.v(LOG_TAG, "Continuation for opened camera cancelled, terminating")
+
+                rejectedCamera.close()
+
+                state.compareAndSet(
+                    expectedValue = CameraDeviceState.OPENED,
+                    newValue = CameraDeviceState.TERMINATED
+                )
+            }
+        }
+
+        when (state.load()) {
+            CameraDeviceState.TERMINATED -> {
+                // Opening was cancelled or failed before Camera2 delivered the device.
+                // Nobody owns this camera, so close it.
+                Logger.v(LOG_TAG, "Closing unowned camera")
+                camera.close()
+            }
+
+            CameraDeviceState.OPENED -> {
+                // Unexpected duplicate onOpened().
+                // Do NOT close: this may be the device already handed to the caller.
+                Logger.i(LOG_TAG, "Unexpected duplicate onOpened call")
+            }
+
+            CameraDeviceState.OPENING -> {
+                // State changed concurrently between CAS and load.
+                // Don't make a decision from this snapshot.
+            }
+        }
+    }
+
+    override fun onDisconnected(camera: CameraDevice) {
+        Logger.v(LOG_TAG, "Camera device disconnected for cameraId=${camera.id}")
+
+        when (state.exchange(CameraDeviceState.TERMINATED)) {
+            CameraDeviceState.OPENING -> {
+                camera.use { camera ->
+                    continuation.resumeWithException(CameraOpenException(CameraId(camera.id)))
+                }
+            }
+
+            CameraDeviceState.OPENED -> { }
+
+            CameraDeviceState.TERMINATED -> {
+                camera.close() // TODO: why
+            }
+        }
+    }
+
+    override fun onError(camera: CameraDevice, errorCode: Int) {
+        when (state.exchange(CameraDeviceState.TERMINATED)) {
+            CameraDeviceState.OPENING -> {
+                camera.use { camera ->
+                    continuation.resumeWithException(CameraOpenException(CameraId(camera.id), errorCode))
+                }
+            }
+
+            CameraDeviceState.OPENED -> { }
+
+            CameraDeviceState.TERMINATED -> {
+                camera.close()
+            }
+        }
+    }
+}
+
 @Throws(CameraOpenException::class)
 @RequiresPermission(Manifest.permission.CAMERA)
 internal suspend fun CameraManager.awaitOpenCamera(
     cameraId: CameraId,
     dispatch: CameraDispatch,
 ): CameraDevice = suspendCancellableCoroutine { continuation ->
-    val completed = AtomicBoolean(false)
-
-    fun completeFail(error: CameraOpenException) {
-        if (completed.compareAndSet(expectedValue = false, newValue = true)) {
-            continuation.resumeWithException(error)
-        }
-    }
-
-    val callback = object : CameraDevice.StateCallback() {
-        override fun onOpened(camera: CameraDevice) {
-            if (completed.compareAndSet(expectedValue = false, newValue = true)) {
-                continuation.resume(camera) { _, _, _ ->
-                    camera.close()
-                }
-            } else {
-                camera.close()
-            }
-        }
-
-        override fun onDisconnected(camera: CameraDevice) {
-            camera.close()
-            completeFail(CameraOpenException(camera.id))
-        }
-
-        override fun onError(camera: CameraDevice, errorCode: Int) {
-            camera.close()
-            completeFail(CameraOpenException(camera.id, errorCode))
-        }
-    }
+    val stateCallback = AwaitCameraDeviceStateCallback(continuation)
 
     continuation.invokeOnCancellation {
-        completed.store(true)
+        stateCallback.cancelOpening()
     }
 
     try {
-        openCamera(cameraId.value, callback, dispatch.handler)
+        openCamera(cameraId.value, stateCallback, dispatch.handler)
     } catch (error: CameraAccessException) {
-        completeFail(CameraOpenException(cameraId, error))
+        stateCallback.failOpening(CameraOpenException(cameraId, error))
     } catch (error: SecurityException) {
-        completeFail(CameraOpenException(cameraId, error))
+        stateCallback.failOpening(CameraOpenException(cameraId, error))
     }
 }
 
-@Suppress("DEPRECATION")
 private fun CameraDevice.createPreviewSessionLegacy(
     previewSurface: PreviewSurface.Active,
     dispatch: CameraDispatch,
     callback: CameraCaptureSession.StateCallback,
 ) {
     try {
+        @Suppress("DEPRECATION")
         createCaptureSession(
             listOf(previewSurface.surface),
             callback,
@@ -208,8 +299,8 @@ internal suspend fun CameraDevice.awaitCreateCaptureSession(
     val callback = object : CameraCaptureSession.StateCallback() {
         override fun onConfigured(session: CameraCaptureSession) {
             if (completed.compareAndSet(expectedValue = false, newValue = true)) {
-                continuation.resume(session) { _, _, _ ->
-                    session.close()
+                continuation.resume(session) { _, rejectedSession, _ ->
+                    rejectedSession.close()
                 }
             } else {
                 session.close()

@@ -11,6 +11,9 @@ import android.graphics.SurfaceTexture
 import android.view.Surface
 import android.view.TextureView
 import androidx.annotation.CheckResult
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 
 /// Owns Surface instance attached to SurfaceTexture.
@@ -42,12 +45,9 @@ sealed interface PreviewSurface {
 @SuppressLint("ViewConstructor")
 class PreviewView(
     context: Context,
-    private val listener: Listener,
+    private val listener: Listener = Listener {},
 ) : TextureView(context) {
-    interface Listener {
-        /// [surface] is borrowed by listener
-        fun onPreviewSurfaceAvailable(surface: PreviewSurface.Active)
-
+    fun interface Listener {
         /// All of the users of surface should stop using it before this function returns
         fun onPreviewSurfaceDestroyed()
     }
@@ -55,7 +55,8 @@ class PreviewView(
     // TODO: is the synchronization needed for access to this variable?
     //       we have no guarantees on callback execution, theoretically
     //       invalid surface can be passed to listener
-    private var surface: PreviewSurface = PreviewSurface.Unavailable
+    private val _surface = MutableStateFlow<PreviewSurface>(PreviewSurface.Unavailable)
+    val surface: StateFlow<PreviewSurface> = _surface.asStateFlow()
 
     init {
         surfaceTextureListener = createSurfaceTextureListener()
@@ -68,20 +69,18 @@ class PreviewView(
                 width: Int,
                 height: Int,
             ) {
-                check(surface is PreviewSurface.Unavailable) {
+                check(_surface.value is PreviewSurface.Unavailable) {
                     "SurfaceTexture became available while preview surface already exists"
                 }
 
                 val active = PreviewSurface.create(surfaceTexture)
-                surface = active
-
-                listener.onPreviewSurfaceAvailable(active)
+                _surface.value = active
             }
 
             override fun onSurfaceTextureDestroyed(
                 surfaceTexture: SurfaceTexture,
             ): Boolean {
-                when (val state = surface) {
+                when (val state = _surface.value) {
                     PreviewSurface.Unavailable -> {
                         // Defensive. Destruction without availability is odd,
                         // but not useful to crash on yet.
@@ -90,7 +89,7 @@ class PreviewView(
                     is PreviewSurface.Active -> {
                         // Let users act on it, then release the resources
                         listener.onPreviewSurfaceDestroyed()
-                        surface = state.release()
+                        _surface.value = state.release()
                     }
                 }
 

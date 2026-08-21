@@ -53,7 +53,7 @@ sealed interface CameraPreviewSession {
                 fail(error)
             }
 
-            Logger.d(LOG_TAG, "Opening camera preview: cameraId=${cameraId.value}")
+            Logger.d(LOG_TAG, "Opening camera device: cameraId=${cameraId.value}")
 
             val camera = try {
                 cameraManager.awaitOpenCamera(cameraId, dispatch)
@@ -93,7 +93,7 @@ sealed interface CameraPreviewSession {
             Logger.d(LOG_TAG, "Configuring camera capture session: cameraId=${cameraId.value}")
 
             fun fail(error: Throwable): Nothing {
-                close()
+                @SuppressWarnings("CheckResult") close()
                 throw error
             }
 
@@ -136,9 +136,11 @@ sealed interface CameraPreviewSession {
         @Throws(CameraPreviewStartException::class)
         fun startPreview(): PreviewRunning {
             fun fail(error: Throwable): Nothing {
-                close()
+                @SuppressWarnings("CheckResult") close()
                 throw error
             }
+
+            Logger.d(LOG_TAG, "Starting the preview: cameraId=${cameraId.value}")
 
             val requestSequenceId = try {
                 captureSession.startRepeatingPreview(camera, previewSurface, dispatch)

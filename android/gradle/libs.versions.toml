@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 [versions]
-agp = "9.2.0"
+agp = "9.2.1"
+
 kotlin = "2.3.21"
 
 [libraries]
@@ -10,4 +11,5 @@ android-gradle-plugin-api = { group = "com.android.tools.build", name = "gradle-
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+
 zig-android = { id = "com.raydrivers.zig-android" }

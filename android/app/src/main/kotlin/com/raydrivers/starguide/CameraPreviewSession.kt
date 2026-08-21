@@ -17,7 +17,6 @@ import android.hardware.camera2.params.SessionConfiguration
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Log
 import androidx.annotation.CheckResult
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
@@ -110,7 +109,7 @@ public sealed interface CameraPreviewSession {
             )
 
             try {
-                Log.d(LOG_TAG, "Opening camera preview: cameraId=${cameraId.value}")
+                Logger.d(LOG_TAG, "Opening camera preview: cameraId=${cameraId.value}")
 
                 cameraManager.openCamera(
                     cameraId.value,
@@ -118,7 +117,7 @@ public sealed interface CameraPreviewSession {
                     dispatch.handler,
                 )
             } catch (error: CameraAccessException) {
-                Log.e(LOG_TAG, "Failed to open camera", error)
+                Logger.e(LOG_TAG, "Failed to open camera", error)
 
                 dispatch.shutdown()
 
@@ -143,14 +142,14 @@ public sealed interface CameraPreviewSession {
         private val transition: (CameraPreviewSession) -> Unit,
     ) : CameraPreviewSession {
         override fun close() : Closed {
-            Log.d(LOG_TAG, "Closing opening camera preview: cameraId=${cameraId.value}")
+            Logger.d(LOG_TAG, "Closing opening camera preview: cameraId=${cameraId.value}")
 
             dispatch.shutdown()
 
             return Closed
         }
 
-        private fun tryStartRepeatingPreview(
+        internal fun tryStartRepeatingPreview(
             camera: CameraDevice,
             session: CameraCaptureSession,
         ): CameraPreviewSession {
@@ -166,7 +165,7 @@ public sealed interface CameraPreviewSession {
                     dispatch.handler,
                 )
 
-                Log.d(LOG_TAG, "Preview repeating request started")
+                Logger.d(LOG_TAG, "Preview repeating request started")
 
                 return Running(
                     cameraDevice = camera,
@@ -175,7 +174,7 @@ public sealed interface CameraPreviewSession {
                     previewSurface = previewSurface,
                 )
             } catch (error: CameraAccessException) {
-                Log.e(LOG_TAG, "Failed to start repeating preview", error)
+                Logger.e(LOG_TAG, "Failed to start repeating preview", error)
 
                 session.close()
                 camera.close()
@@ -187,13 +186,13 @@ public sealed interface CameraPreviewSession {
         fun createCameraDeviceCallback(): CameraDevice.StateCallback =
             object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
-                    Log.d(LOG_TAG, "Camera opened: cameraId=${camera.id}")
+                    Logger.d(LOG_TAG, "Camera opened: cameraId=${camera.id}")
 
                     tryCreatePreviewSession(camera)
                 }
 
                 override fun onDisconnected(camera: CameraDevice) {
-                    Log.w(LOG_TAG, "Camera disconnected: cameraId=${camera.id}")
+                    Logger.w(LOG_TAG, "Camera disconnected: cameraId=${camera.id}")
 
                     // TODO: do we close here or in state?
                     camera.close()
@@ -201,7 +200,7 @@ public sealed interface CameraPreviewSession {
                 }
 
                 override fun onError(camera: CameraDevice, error: Int) {
-                    Log.e(LOG_TAG, "Camera error: cameraId=${camera.id} error=$error")
+                    Logger.e(LOG_TAG, "Camera error: cameraId=${camera.id} error=$error")
 
                     // TODO: do we close here or in state?
                     camera.close()
@@ -209,7 +208,7 @@ public sealed interface CameraPreviewSession {
                 }
             }
 
-        private fun tryCreatePreviewSession(camera: CameraDevice) {
+        internal fun tryCreatePreviewSession(camera: CameraDevice) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     createPreviewSessionModern(camera)
@@ -217,7 +216,7 @@ public sealed interface CameraPreviewSession {
                     createPreviewSessionLegacy(camera)
                 }
             } catch (error: CameraAccessException) {
-                Log.e(LOG_TAG, "Failed to create preview session", error)
+                Logger.e(LOG_TAG, "Failed to create preview session", error)
 
                 // TODO: do we close here or in state?
                 camera.close()
@@ -253,7 +252,7 @@ public sealed interface CameraPreviewSession {
         ): CameraCaptureSession.StateCallback =
             object : CameraCaptureSession.StateCallback() {
                 override fun onConfigured(session: CameraCaptureSession) {
-                    Log.d(LOG_TAG, "Preview session configured")
+                    Logger.d(LOG_TAG, "Preview session configured")
 
                     transition(
                         tryStartRepeatingPreview(
@@ -264,7 +263,7 @@ public sealed interface CameraPreviewSession {
                 }
 
                 override fun onConfigureFailed(session: CameraCaptureSession) {
-                    Log.e(LOG_TAG, "Preview session configuration failed")
+                    Logger.e(LOG_TAG, "Preview session configuration failed")
 
                     session.close()
                     camera.close()
@@ -283,7 +282,7 @@ public sealed interface CameraPreviewSession {
         private val previewSurface: PreviewSurface.Active,
     ) : CameraPreviewSession {
         override fun close(): Closed {
-            Log.d(LOG_TAG, "Closing running camera preview: cameraId=${cameraDevice.id}")
+            Logger.d(LOG_TAG, "Closing running camera preview: cameraId=${cameraDevice.id}")
 
             captureSession.close()
             cameraDevice.close()

@@ -10,7 +10,8 @@
 
     <uses-feature
         android:name="android.hardware.camera2"
-        android:required="true"/>
+        android:required="true"
+        tools:ignore="UnsupportedChromeOsHardware"/>
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />

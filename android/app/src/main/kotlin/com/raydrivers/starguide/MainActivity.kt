@@ -9,7 +9,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.Log
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
@@ -46,7 +45,7 @@ class MainActivity : ComponentActivity() {
         }
 
         override fun onPreviewSurfaceDestroyed() {
-            Log.d(LOG_TAG, "preview destroyed")
+            Logger.d(LOG_TAG, "preview destroyed")
 
             stopCameraPreview()
         }
@@ -60,7 +59,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    private fun hasCameraPermission(): Boolean =
+    internal fun hasCameraPermission(): Boolean =
         ContextCompat.checkSelfPermission(
             this,
             Manifest.permission.CAMERA
@@ -99,7 +98,7 @@ class MainActivity : ComponentActivity() {
             "onCameraPermissionDenied called, but camera permission is granted"
         }
 
-        Log.w(LOG_TAG, "Camera permission denied")
+        Logger.w(LOG_TAG, "Camera permission denied")
     }
 
     private fun onCameraPermissionGranted() {
@@ -107,18 +106,18 @@ class MainActivity : ComponentActivity() {
             "onCameraPermissionGranted called, but camera permission is denied"
         }
 
-        Log.d(LOG_TAG, "Camera permission granted")
+        Logger.d(LOG_TAG, "Camera permission granted")
     }
 
-    private fun startCameraPreview(surface: PreviewSurface.Active) {
+    internal fun startCameraPreview(surface: PreviewSurface.Active) {
         check(hasCameraPermission()) {
             "startCameraPreview called without camera permission"
         }
-        Log.d(LOG_TAG, "Starting camera preview")
+        Logger.d(LOG_TAG, "Starting camera preview")
 
         cameraPreviewSession = when (val session = cameraPreviewSession) {
             CameraPreviewSession.Closed -> {
-                Log.d(LOG_TAG, "Starting camera preview")
+                Logger.d(LOG_TAG, "Starting camera preview")
 
                 @SuppressLint("MissingPermission", "Already checked above, linter doesn't recognize")
                 CameraPreviewSession.open(
@@ -140,8 +139,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun stopCameraPreview() {
-        Log.d(LOG_TAG, "Stop camera preview")
+    internal fun stopCameraPreview() {
+        Logger.d(LOG_TAG, "Stop camera preview")
         cameraPreviewSession = cameraPreviewSession.close()
     }
 

@@ -9,10 +9,12 @@
 
 cd "$(dirname "$0")/.."
 
-files=()
-while IFS= read -r file; do
-    files+=("$file")
-done < <(git ls-files)
+files=("$@")
+if (( ${#files[@]} == 0 )); then
+    while IFS= read -r file; do
+        files+=("$file")
+    done < <(git ls-files)
+fi
 
 ignore_args=()
 while IFS= read -r ignore; do

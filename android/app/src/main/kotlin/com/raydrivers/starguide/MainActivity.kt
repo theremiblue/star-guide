@@ -8,34 +8,57 @@ package com.raydrivers.starguide
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.graphics.Typeface
 import android.os.Bundle
 import android.util.Log
-import android.view.Gravity
+import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+
 
 class MainActivity : ComponentActivity() {
     companion object {
         private const val LOG_TAG = "MainActivity"
     }
 
-    private val requestCameraPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        granted -> when (granted) {
-            true  -> onCameraPermissionGranted()
-            false -> onCameraPermissionDenied()
+    private val previewView: PreviewView by lazy {
+        PreviewView(this, previewListener).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
         }
     }
 
-    private lateinit var cameraPreview: CameraPreview
+    private var cameraPreviewSession: CameraPreviewSession = CameraPreviewSession.Closed
 
+    private val previewListener = object : PreviewView.Listener {
+        override fun onPreviewSurfaceAvailable(surface: PreviewSurface.Active) {
+            if (!hasCameraPermission()) return
+
+            // TODO: I don't like multiple paths leading here
+            startCameraPreview(surface)
+        }
+
+        override fun onPreviewSurfaceDestroyed() {
+            Log.d(LOG_TAG, "preview destroyed")
+
+            stopCameraPreview()
+        }
+    }
+
+    private val requestCameraPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            when (granted) {
+                true -> onCameraPermissionGranted()
+                false -> onCameraPermissionDenied()
+            }
+        }
 
     private fun hasCameraPermission(): Boolean =
         ContextCompat.checkSelfPermission(
@@ -87,20 +110,43 @@ class MainActivity : ComponentActivity() {
         Log.d(LOG_TAG, "Camera permission granted")
     }
 
-    private fun getContentView(): View {
-        val result = CoreBridge.add(2, 3)
-
-        return TextView(this).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-            )
-            gravity = Gravity.CENTER
-            @SuppressLint("SetTextI18n")
-            text = "core_add(2, 3) = $result"
-            textSize = 32f
-            setTypeface(typeface, Typeface.BOLD)
+    private fun startCameraPreview(surface: PreviewSurface.Active) {
+        check(hasCameraPermission()) {
+            "startCameraPreview called without camera permission"
         }
+        Log.d(LOG_TAG, "Starting camera preview")
+
+        cameraPreviewSession = when (val session = cameraPreviewSession) {
+            CameraPreviewSession.Closed -> {
+                Log.d(LOG_TAG, "Starting camera preview")
+
+                @SuppressLint("MissingPermission", "Already checked above, linter doesn't recognize")
+                CameraPreviewSession.open(
+                    context = this,
+                    previewSurface = surface,
+                    transition = { next ->
+                        cameraPreviewSession = next
+                    },
+                )
+            }
+
+            is CameraPreviewSession.Opening -> {
+                session
+            }
+
+            is CameraPreviewSession.Running -> {
+                session
+            }
+        }
+    }
+
+    private fun stopCameraPreview() {
+        Log.d(LOG_TAG, "Stop camera preview")
+        cameraPreviewSession = cameraPreviewSession.close()
+    }
+
+    private fun getContentView(): View {
+        return previewView
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -127,11 +173,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+
+        // TODO: how to restart preview?
+
         // Foreground only work goes here, camera sensor, reading, etc
     }
 
     override fun onPause() {
-        super.onPause()
+        stopCameraPreview()
+
         // no heavy cleanup here
+
+        super.onPause()
     }
 }

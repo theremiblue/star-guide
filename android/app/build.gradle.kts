@@ -1,14 +1,11 @@
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.zig.android)
 }
 
 val appNamespace = "com.raydrivers.starguide"
 
-val androidComponents = extensions.getByType<ApplicationAndroidComponentsExtension>()
 val androidApiLevel = AndroidVersions.minSdk(project)
-val zigJniLibsDirectory = layout.buildDirectory.dir("generated/zig/jniLibs")
-val zigJniLibsPath = zigJniLibsDirectory.get().asFile.path
-
 val javaVersion = AndroidVersions.java(project)
 
 kotlin {
@@ -18,6 +15,10 @@ kotlin {
     }
 
     jvmToolchain(javaVersion)
+}
+
+zig {
+    projectDir("../core")
 }
 
 android {
@@ -49,14 +50,4 @@ android {
         checkAllWarnings = true
         error += "NewApi"
     }
-
-    sourceSets.getByName("main").jniLibs.directories.clear()
-    sourceSets.getByName("main").jniLibs.directories.add(zigJniLibsPath)
 }
-
-registerZigCoreBuild(
-    androidNdkDirectory = androidComponents.sdkComponents.ndkDirectory,
-    androidSdkDirectory = androidComponents.sdkComponents.sdkDirectory,
-    jniLibsDirectory = zigJniLibsDirectory,
-    androidApiLevel = androidApiLevel,
-)

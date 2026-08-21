@@ -1,6 +1,4 @@
 pluginManagement {
-    includeBuild("build-logic")
-
     repositories {
         google()
         mavenCentral()
@@ -10,20 +8,15 @@ pluginManagement {
 
 @Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-
     repositories {
         google()
         mavenCentral()
+        gradlePluginPortal()
     }
 
     versionCatalogs {
-        create("androidVersions") {
-            from(files("gradle/android.versions.toml"))
+        create("libs") {
+            from(files("../gradle/libs.versions.toml"))
         }
     }
 }
-
-rootProject.name = "StarGuide"
-
-include(":app")

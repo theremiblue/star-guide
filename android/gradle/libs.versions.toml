@@ -7,3 +7,4 @@ android-gradle-plugin-api = { group = "com.android.tools.build", name = "gradle-
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+zig-android = { id = "com.raydrivers.zig-android" }
